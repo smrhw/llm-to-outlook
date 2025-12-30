@@ -1,0 +1,27 @@
+{
+  "name": "outlook-ai-assistant",
+  "version": "1.0.0",
+  "description": "Outlook add-in for AI-powered text processing with multi-LLM support",
+  "main": "src/taskpane/taskpane.js",
+  "scripts": {
+    "start": "npx http-server . -p 3000 -c-1 --cors",
+    "start:desktop": "npx http-server . -p 3000 -S -C C:/Users/smrhw/.office-addin-dev-certs/localhost.crt -K C:/Users/smrhw/.office-addin-dev-certs/localhost.key --cors",
+    "dev": "npx http-server . -p 3000 -c-1 --cors",
+    "build": "echo 'Building...' && mkdir -p dist && cp -r src assets manifest.xml dist/",
+    "deploy": "npm run build && npx gh-pages -d dist"
+  },
+  "keywords": [
+    "outlook",
+    "add-in",
+    "ai",
+    "llm",
+    "openai",
+    "claude",
+    "gemini"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "office-addin-dev-certs": "^2.0.6"
+  }
+}
