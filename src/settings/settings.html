@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - Settings</title>
+    <link rel="stylesheet" href="settings.css">
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <button id="backBtn" class="back-btn" title="Back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+            <h1>Settings</h1>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Provider Selection -->
+            <section class="section">
+                <h2 class="section-title">LLM Provider</h2>
+                <div class="provider-cards">
+                    <label class="provider-card" data-provider="openai">
+                        <input type="radio" name="provider" value="openai">
+                        <div class="provider-content">
+                            <span class="provider-icon">🤖</span>
+                            <span class="provider-name">OpenAI</span>
+                        </div>
+                    </label>
+                    <label class="provider-card" data-provider="claude">
+                        <input type="radio" name="provider" value="claude">
+                        <div class="provider-content">
+                            <span class="provider-icon">🎭</span>
+                            <span class="provider-name">Claude</span>
+                        </div>
+                    </label>
+                    <label class="provider-card" data-provider="gemini">
+                        <input type="radio" name="provider" value="gemini">
+                        <div class="provider-content">
+                            <span class="provider-icon">💎</span>
+                            <span class="provider-name">Gemini</span>
+                        </div>
+                    </label>
+                    <label class="provider-card" data-provider="custom">
+                        <input type="radio" name="provider" value="custom">
+                        <div class="provider-content">
+                            <span class="provider-icon">⚙️</span>
+                            <span class="provider-name">Custom</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Provider Settings -->
+            <section class="section" id="providerSettings">
+                <h2 class="section-title">Provider Configuration</h2>
+
+                <div class="form-group">
+                    <label class="form-label" for="apiKey">API Key</label>
+                    <div class="input-with-toggle">
+                        <input type="password" id="apiKey" class="input" placeholder="Enter your API key">
+                        <button type="button" id="toggleApiKey" class="toggle-btn" title="Show/Hide">
+                            <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="eye-closed" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                                <path
+                                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+                                </path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="endpointGroup">
+                    <label class="form-label" for="endpoint">API Endpoint</label>
+                    <input type="url" id="endpoint" class="input" placeholder="https://api.example.com">
+                    <span class="form-hint" id="endpointHint"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="model">Model</label>
+                    <input type="text" id="model" class="input" placeholder="e.g., gpt-4o-mini">
+                    <span class="form-hint" id="modelHint"></span>
+                </div>
+
+                <button id="saveSettingsBtn" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save Settings
+                </button>
+            </section>
+
+            <!-- Divider -->
+            <hr class="divider">
+
+            <!-- Saved Prompts -->
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Saved Prompts</h2>
+                    <button id="addPromptBtn" class="btn btn-small">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add
+                    </button>
+                </div>
+
+                <div id="promptsList" class="prompts-list">
+                    <!-- Prompts will be rendered here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Prompt Modal -->
+        <div id="promptModal" class="modal" style="display: none;">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add Prompt</h3>
+                    <button id="closeModalBtn" class="close-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="promptName">Name</label>
+                        <input type="text" id="promptName" class="input" placeholder="e.g., Fix Grammar">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="promptInstruction">Instruction</label>
+                        <textarea id="promptInstruction" class="textarea" rows="4"
+                            placeholder="e.g., Fix any grammatical errors while maintaining the original meaning..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="cancelModalBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="savePromptBtn" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast" style="display: none;"></div>
+    </div>
+
+    <script type="module" src="settings.js"></script>
+</body>
+
+</html>

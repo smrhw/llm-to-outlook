@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant</title>
+  <link rel="stylesheet" href="taskpane.css">
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title">
+        <span class="logo">✨</span>
+        <h1>AI Assistant</h1>
+      </div>
+      <button id="settingsBtn" class="icon-btn" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Status Indicator & Context Preview -->
+      <div class="status-container">
+        <div class="status-indicator" id="statusIndicator" title="Click to view captured text">
+          <div class="status-dot" id="statusDot"></div>
+          <div class="status-text" id="statusText">Initalizing...</div>
+          <svg class="status-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+        <div class="context-preview" id="contextPreview">
+          <div class="context-preview-content" id="contextPreviewContent"></div>
+        </div>
+      </div>
+
+      <!-- Instruction Section -->
+      <section class="section">
+        <label class="section-label" for="instruction">Instruction</label>
+        <div class="prompt-selector">
+          <select id="savedPrompts" class="select">
+            <option value="">-- Select a saved prompt --</option>
+          </select>
+        </div>
+        <textarea id="instruction" class="textarea"
+          placeholder="What would you like the AI to do with your email? (e.g., 'Make it more professional', 'Translate to French', 'Summarize key points')..."
+          rows="4"></textarea>
+
+        <!-- Thread History Toggle -->
+        <div class="toggle-container">
+          <label class="toggle-switch">
+            <input type="checkbox" id="includeThreadToggle">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">Include previous email thread for context</span>
+        </div>
+      </section>
+
+      <!-- Process Button -->
+      <button id="processBtn" class="btn btn-primary" disabled>
+        <span class="btn-text">Process with AI</span>
+        <span class="btn-loading" style="display: none;">
+          <span class="spinner"></span>
+          Processing...
+        </span>
+      </button>
+
+      <!-- Result Section -->
+      <section id="resultSection" class="section result-section" style="display: none;">
+
+        <!-- Subject Proposal -->
+        <div class="result-card" id="subjectCard">
+          <div class="result-card-header">
+            <span class="result-card-label">Suggested Subject</span>
+          </div>
+          <div id="subjectText" class="subject-preview"></div>
+          <button id="insertSubjectBtn" class="btn btn-action">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Insert Subject
+          </button>
+        </div>
+
+        <!-- Body Proposal -->
+        <div class="result-card" id="bodyCard">
+          <div class="result-card-header">
+            <span class="result-card-label">Suggested Body</span>
+          </div>
+          <div id="bodyPreview" class="body-preview"></div>
+          <div class="body-actions">
+            <button id="replaceBodyBtn" class="btn btn-action">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Replace Body
+            </button>
+            <button id="copyToClipboardBtn" class="btn btn-action-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy to Clipboard
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Error Display -->
+      <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span id="providerIndicator" class="provider-indicator">
+        Provider: <strong>Not configured</strong>
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="taskpane.js"></script>
+</body>
+
+</html>
