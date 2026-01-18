@@ -7,7 +7,7 @@ let elements = {};
 let currentEmailBody = '';
 let currentEmailBodyHtml = '';
 let currentThreadContent = '';
-let initialBodyTemplate = null; // Captured on first load to identify signature
+let signatureTextCache = null; // Detected signature text (excludes user content)
 let currentResult = { subject: '', body: '' };
 let refreshInterval = null;
 
@@ -108,15 +108,14 @@ function captureEmailBody() {
                 // Parse HTML to separate current message from thread
                 const parsed = parseEmailHtml(fullHtml);
 
-                // On first run, store the initial message part as the signature template
-                // This is very effective because Outlook inserts the signature before the user starts typing
-                if (initialBodyTemplate === null) {
-                    initialBodyTemplate = parsed.currentMessage.trim();
+                // Extract signature from HTML structure (not from template comparison)
+                // This works regardless of whether user typed before or after opening the app
+                if (signatureTextCache === null) {
+                    signatureTextCache = extractSignatureFromHtml(fullHtml);
                 }
 
-                // Current body is the message content (stripped of signature)
-                // We pass the template for smart comparison
-                currentEmailBody = stripSignature(parsed.currentMessage, initialBodyTemplate);
+                // Current body is the message content with signature stripped
+                currentEmailBody = stripSignature(parsed.currentMessage, signatureTextCache);
 
                 // Thread content is cleaned previous emails (when toggle is on)
                 if (elements.includeThreadToggle.checked) {
@@ -219,19 +218,130 @@ function parseEmailHtml(html) {
 }
 
 /**
+ * Extract signature text from HTML using structural markers
+ * This detects the signature regardless of user-written content above it
+ * @param {string} html - Full email HTML
+ * @returns {string} - Detected signature text (or empty string)
+ */
+function extractSignatureFromHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+
+    // === Strategy 1: Look for explicit signature markers in HTML ===
+    const signatureMarkers = [
+        '#Signature',               // Outlook signature ID
+        '.Signature',               // Outlook signature class
+        '#ms-outlook-mobile-signature',
+        '[data-signature]',
+        'div[id*="signature" i]',   // Any div with signature in its ID
+        'div[class*="signature" i]', // Any div with signature in its class
+    ];
+
+    for (const selector of signatureMarkers) {
+        try {
+            const sigEl = temp.querySelector(selector);
+            if (sigEl) {
+                return (sigEl.textContent || '').trim();
+            }
+        } catch (e) {
+            // Invalid selector, skip
+        }
+    }
+
+    // === Strategy 2: Phrase-based detection from the END of the document ===
+    // Walk backwards through elements to find signature-starting phrases
+    const signaturePhrases = [
+        /^Best regards/i,
+        /^Kind regards/i,
+        /^Regards/i,
+        /^Sincerely/i,
+        /^Thanks/i,
+        /^Thank you/i,
+        /^Cheers/i,
+        /^Cordialement/i,
+        /^Cdlt/i,
+        /^Mit freundlichen Grüßen/i,
+        /^MfG/i,
+        /^--\s*$/,
+    ];
+
+    // Get all text-containing elements
+    const allElements = Array.from(temp.querySelectorAll('div, p, span, font'));
+
+    for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        const text = (el.textContent || '').trim();
+
+        for (const phrase of signaturePhrases) {
+            if (phrase.test(text)) {
+                // Found the start of signature - collect this element and everything after
+                let signatureText = '';
+                for (let j = i; j < allElements.length; j++) {
+                    // Only add if it's not a child of a previous element we already added
+                    const elText = (allElements[j].textContent || '').trim();
+                    if (elText && !signatureText.includes(elText)) {
+                        signatureText += elText + '\n';
+                    }
+                }
+                return signatureText.trim();
+            }
+        }
+    }
+
+    // === Strategy 3: Contact info pattern at the end ===
+    // Look for phone/email/url patterns near the end
+    const bodyText = temp.textContent || '';
+    const lines = bodyText.split('\n').filter(l => l.trim());
+
+    if (lines.length > 3) {
+        for (let i = lines.length - 1; i >= Math.max(0, lines.length - 10); i--) {
+            const line = lines[i].trim();
+            const hasPhone = /\+?[\d\s\-\(\).]{8,20}/.test(line);
+            const hasEmail = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(line);
+            const hasUrl = /www\.|http/i.test(line);
+
+            if (hasPhone || hasEmail || hasUrl) {
+                // Found contact info, signature likely starts a few lines before
+                const sigStart = Math.max(0, i - 5);
+                return lines.slice(sigStart).join('\n').trim();
+            }
+        }
+    }
+
+    // No signature detected
+    return '';
+}
+
+/**
  * Strip signature from message text
  * @param {string} text - Message text
- * @param {string} template - Initial body captured at startup (optional)
+ * @param {string} signatureText - Detected signature text (optional)
  * @returns {string} - Text with signature removed
  */
-function stripSignature(text, template) {
+function stripSignature(text, signatureText) {
     let result = text.trim();
 
-    // Strategy 1: Smart Comparison
-    // If the message ends with our initial template (the signature), strip it
-    if (template && template.length > 5) {
-        if (result.endsWith(template)) {
-            return result.substring(0, result.length - template.length).trim();
+    // Strategy 1: Remove detected signature
+    // If we have a cached signature, find and remove it from the text
+    if (signatureText && signatureText.length > 5) {
+        // Normalize whitespace for comparison
+        const normalizedResult = result.replace(/\s+/g, ' ').trim();
+        const normalizedSig = signatureText.replace(/\s+/g, ' ').trim();
+
+        // Check if the message ends with the signature
+        if (normalizedResult.endsWith(normalizedSig)) {
+            // Find where signature starts in original text
+            // We need to be careful with whitespace differences
+            const sigFirstLine = signatureText.split('\n')[0].trim();
+            const sigIndex = result.lastIndexOf(sigFirstLine);
+            if (sigIndex > 0) {
+                return result.substring(0, sigIndex).trim();
+            }
+        }
+
+        // Also try direct endsWith check
+        if (result.endsWith(signatureText)) {
+            return result.substring(0, result.length - signatureText.length).trim();
         }
     }
 
@@ -665,8 +775,15 @@ function handleReplaceBody() {
                 { coercionType: Office.CoercionType.Html },
                 (result) => {
                     if (result.status === Office.AsyncResultStatus.Succeeded) {
-                        showSuccess('Body replaced!');
-                        hideResults();
+                        // Move cursor to beginning of email to prevent scrolling to bottom
+                        Office.context.mailbox.item.body.prependAsync(
+                            '',
+                            { coercionType: Office.CoercionType.Html },
+                            () => {
+                                showSuccess('Body replaced!');
+                                hideResults();
+                            }
+                        );
                     } else {
                         showError('Failed to replace: ' + result.error.message);
                     }
@@ -772,9 +889,9 @@ function extractPreservedContent(html) {
     }
 
     // If no explicit signature found, try to detect signature patterns
-    // Use the initial template if we captured it at startup
-    if (!signatureElement && initialBodyTemplate && initialBodyTemplate.length > 5) {
-        // The signature is likely the content that matches our initial template
+    // Use the cached signature text if we detected it
+    if (!signatureElement && signatureTextCache && signatureTextCache.length > 5) {
+        // The signature is likely the content that matches our cached signature
         // Look for elements at the end that contain signature-like content
         const allElements = Array.from(temp.querySelectorAll('div, p, table'));
 
@@ -783,8 +900,8 @@ function extractPreservedContent(html) {
             const el = allElements[i];
             const elText = (el.textContent || '').trim();
 
-            // Check if this element's text is part of the initial template (signature)
-            if (elText.length > 5 && initialBodyTemplate.includes(elText)) {
+            // Check if this element's text is part of the cached signature
+            if (elText.length > 5 && signatureTextCache.includes(elText)) {
                 signatureElement = el;
                 break;
             }
