@@ -24,6 +24,13 @@ For the body, use RICH HTML FORMATTING to create visually appealing, well-struct
   • Limit usage to 1-2 relevant emojis maximum, and only if the tone is friendly or informal
   • Examples where they may be appropriate: 👋 for greetings, ✅ for confirmations, or 🎉 for celebrations
   • Avoid emojis in formal or strictly professional correspondence
+
+OBJECT PRESERVATION:
+- The input may contain placeholders like [[TABLE_1]] or [[IMAGE_1]].
+- These represent embedded tables or images that MUST be preserved exactly as-is.
+- Include these placeholders in your output in their appropriate relative positions.
+- Do NOT modify, remove, or rewrite the placeholder text.
+
 - Keep the formatting clean, professional, and visually structured
 - Do not include any text outside the JSON object
 - Do not use markdown syntax - use only HTML tags`;

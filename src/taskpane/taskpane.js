@@ -7,8 +7,9 @@ let elements = {};
 let currentEmailBody = '';
 let currentEmailBodyHtml = '';
 let currentThreadContent = '';
+let currentPreservedObjects = new Map(); // Map of placeholder -> original HTML
 let signatureTextCache = null; // Detected signature text (excludes user content)
-let currentResult = { subject: '', body: '' };
+let currentResult = { subject: '', body: '', preservedObjects: new Map() };
 let refreshInterval = null;
 
 /**
@@ -105,8 +106,12 @@ function captureEmailBody() {
                 const fullHtml = htmlResult.value;
                 currentEmailBodyHtml = fullHtml;
 
+                // Reset preserved objects for this capture
+                const sessionObjects = new Map();
+
                 // Parse HTML to separate current message from thread
-                const parsed = parseEmailHtml(fullHtml);
+                const parsed = parseEmailHtml(fullHtml, sessionObjects);
+                currentPreservedObjects = sessionObjects;
 
                 // Extract signature from HTML structure (not from template comparison)
                 // This works regardless of whether user typed before or after opening the app
@@ -132,11 +137,37 @@ function captureEmailBody() {
 }
 
 /**
+ * Detect tables and images in an element and replace them with placeholders
+ * @param {HTMLElement} element - Element to process
+ * @param {Map} objectsMap - Map to store preserved HTML
+ */
+function detectAndReplaceObjects(element, objectsMap) {
+    // Find all tables and images
+    const tables = Array.from(element.querySelectorAll('table'));
+    const images = Array.from(element.querySelectorAll('img'));
+
+    tables.forEach((table, index) => {
+        const id = `[[TABLE_${objectsMap.size + 1}]]`;
+        objectsMap.set(id, table.outerHTML);
+        const placeholder = document.createTextNode(id);
+        table.parentNode.replaceChild(placeholder, table);
+    });
+
+    images.forEach((img, index) => {
+        const id = `[[IMAGE_${objectsMap.size + 1}]]`;
+        objectsMap.set(id, img.outerHTML);
+        const placeholder = document.createTextNode(id);
+        img.parentNode.replaceChild(placeholder, img);
+    });
+}
+
+/**
  * Parse email HTML to separate current message from thread content
  * @param {string} html - Full email HTML
+ * @param {Map} objectsMap - Map to store structural objects (tables/images)
  * @returns {{currentMessage: string, threadContent: string}}
  */
-function parseEmailHtml(html) {
+function parseEmailHtml(html, objectsMap) {
     const temp = document.createElement('div');
     temp.innerHTML = html;
 
@@ -203,10 +234,19 @@ function parseEmailHtml(html) {
             threadNode = threadNode.nextSibling;
         }
 
+        // Detect and replace tables/images with placeholders before extracting text
+        if (objectsMap) {
+            detectAndReplaceObjects(beforeThread, objectsMap);
+        }
+
         currentMessage = beforeThread.textContent || beforeThread.innerText || '';
         threadContent = fullThread.textContent || fullThread.innerText || '';
     } else {
         // No thread marker found - entire content is current message
+        // Detect and replace tables/images with placeholders before extracting text
+        if (objectsMap) {
+            detectAndReplaceObjects(temp, objectsMap);
+        }
         currentMessage = temp.textContent || temp.innerText || '';
         threadContent = '';
     }
@@ -584,6 +624,14 @@ async function handleProcess() {
                 subject: '',
                 body: result
             };
+        }
+
+        // Store preserved objects in currentResult for later restoration
+        currentResult.preservedObjects = new Map(currentPreservedObjects);
+
+        // Restore placeholders in body with original HTML
+        if (currentResult.body && currentResult.preservedObjects.size > 0) {
+            currentResult.body = restorePreservedObjects(currentResult.body, currentResult.preservedObjects);
         }
 
         // Display results
@@ -985,6 +1033,20 @@ function addOutlookStyles(html) {
     styledHtml = styledHtml.replace(/<ol>/gi, '<ol style="margin-bottom: 15px;">');
 
     return styledHtml;
+}
+
+/**
+ * Restore preserved objects (tables/images) by replacing placeholders with original HTML
+ * @param {string} html - HTML content with placeholders
+ * @param {Map} objectsMap - Map of placeholder -> original HTML
+ * @returns {string} - HTML with placeholders replaced by original content
+ */
+function restorePreservedObjects(html, objectsMap) {
+    let result = html;
+    for (const [placeholder, originalHtml] of objectsMap) {
+        result = result.replace(placeholder, originalHtml);
+    }
+    return result;
 }
 
 /**
