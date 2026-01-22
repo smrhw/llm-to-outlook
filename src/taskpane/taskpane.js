@@ -138,22 +138,128 @@ function captureEmailBody() {
 
 /**
  * Detect tables and images in an element and replace them with placeholders
+ * Excludes images that are inside signature elements or appear after signature phrases
  * @param {HTMLElement} element - Element to process
  * @param {Map} objectsMap - Map to store preserved HTML
  */
 function detectAndReplaceObjects(element, objectsMap) {
+    // Signature selectors to exclude images from
+    const signatureSelectors = [
+        '#Signature',
+        '.Signature',
+        '#ms-outlook-mobile-signature',
+        '[data-signature]',
+        'div[id*="signature" i]',
+        'div[class*="signature" i]'
+    ];
+
+    // Signature phrases that indicate start of signature zone
+    const signaturePhrases = [
+        /^Best regards/i,
+        /^Kind regards/i,
+        /^Regards,/i,
+        /^Sincerely/i,
+        /^Thanks,/i,
+        /^Thank you,/i,
+        /^Cheers,/i,
+        /^Cordialement/i,
+        /^Cdlt,/i,
+        /^Mit freundlichen Grüßen/i,
+        /^MfG,/i,
+        /^--\s*$/,
+    ];
+
+    /**
+     * Check if an element is inside a signature container (by HTML structure)
+     */
+    function isInsideSignatureContainer(el) {
+        let parent = el.parentElement;
+        while (parent && parent !== element) {
+            for (const selector of signatureSelectors) {
+                try {
+                    if (parent.matches(selector)) {
+                        return true;
+                    }
+                } catch (e) {
+                    // Invalid selector, skip
+                }
+            }
+            parent = parent.parentElement;
+        }
+        return false;
+    }
+
+    /**
+     * Check if an element appears after a signature phrase in the document
+     * This catches signature images that aren't inside explicit signature containers
+     */
+    function isAfterSignaturePhrase(el) {
+        // Create a TreeWalker to traverse text nodes before this element
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        // Get all text nodes before the element
+        const textContents = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            // Check if this text node comes before our element
+            const position = el.compareDocumentPosition(node);
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+                // This text node is before our element
+                textContents.push((node.textContent || '').trim());
+            }
+        }
+
+        // Check if any signature phrase appears in the preceding text
+        const precedingText = textContents.join('\n');
+        for (const phrase of signaturePhrases) {
+            if (phrase.test(precedingText)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an element is in the signature zone (either by container or by position)
+     */
+    function isInSignatureZone(el) {
+        // First check explicit signature containers
+        if (isInsideSignatureContainer(el)) {
+            return true;
+        }
+
+        // Then check if it appears after signature phrases
+        if (isAfterSignaturePhrase(el)) {
+            return true;
+        }
+
+        return false;
+    }
+
     // Find all tables and images
     const tables = Array.from(element.querySelectorAll('table'));
     const images = Array.from(element.querySelectorAll('img'));
 
-    tables.forEach((table, index) => {
+    // Filter tables - exclude those in signature zone
+    const contentTables = tables.filter(table => !isInSignatureZone(table));
+
+    // Filter images - exclude those in signature zone
+    const contentImages = images.filter(img => !isInSignatureZone(img));
+
+    contentTables.forEach((table) => {
         const id = `[[TABLE_${objectsMap.size + 1}]]`;
         objectsMap.set(id, table.outerHTML);
         const placeholder = document.createTextNode(id);
         table.parentNode.replaceChild(placeholder, table);
     });
 
-    images.forEach((img, index) => {
+    contentImages.forEach((img) => {
         const id = `[[IMAGE_${objectsMap.size + 1}]]`;
         objectsMap.set(id, img.outerHTML);
         const placeholder = document.createTextNode(id);
@@ -784,6 +890,29 @@ function copyPlainTextFallback(text) {
 }
 
 /**
+ * Scroll the email view to the top by manipulating cursor position
+ * Uses setSelectedDataAsync to force cursor and view to the beginning
+ */
+function scrollEmailToTop() {
+    // Strategy: Use setSelectedDataAsync to place cursor at the top
+    // This forces Outlook to scroll to the insertion point
+    Office.context.mailbox.item.body.setSelectedDataAsync(
+        '', // Insert nothing, just move cursor
+        { coercionType: Office.CoercionType.Text },
+        (result) => {
+            // Fallback: Also use prependAsync which sometimes helps focus
+            Office.context.mailbox.item.body.prependAsync(
+                '', // Insert empty content at the beginning
+                { coercionType: Office.CoercionType.Html },
+                () => {
+                    // Both methods attempted - view should be at top
+                }
+            );
+        }
+    );
+}
+
+/**
  * Replace only the draft text above the signature, preserving signature and thread
  * Uses smart HTML parsing to identify and preserve email structure
  */
@@ -823,15 +952,12 @@ function handleReplaceBody() {
                 { coercionType: Office.CoercionType.Html },
                 (result) => {
                     if (result.status === Office.AsyncResultStatus.Succeeded) {
-                        // Move cursor to beginning of email to prevent scrolling to bottom
-                        Office.context.mailbox.item.body.prependAsync(
-                            '',
-                            { coercionType: Office.CoercionType.Html },
-                            () => {
-                                showSuccess('Body replaced!');
-                                hideResults();
-                            }
-                        );
+                        // Scroll the email view to the top
+                        scrollEmailToTop();
+
+                        // Show success and hide results
+                        showSuccess('Body replaced!');
+                        hideResults();
                     } else {
                         showError('Failed to replace: ' + result.error.message);
                     }
